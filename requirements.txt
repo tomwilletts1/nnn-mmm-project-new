@@ -1,7 +1,8 @@
-ipykernel
+pandas
+numpy
+scikit-learn
+openai
+tqdm
+matplotlib
+seaborn
 python-dotenv
-flask==3.0.2
-xgboost==2.0.3
-numpy==1.26.4
-pandas==2.2.1
-scikit-learn==1.4.1

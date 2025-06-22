@@ -1,37 +1,21 @@
-from flask import Flask, request, jsonify
-import xgboost as xgb
-import numpy as np
-import joblib
-import os
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, r2_score
 
-app = Flask(__name__)
 
-# Load the model
-MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'xgboost_model.joblib')
-model = joblib.load(MODEL_PATH)
+def build_model():
+    return Pipeline([("scaler", StandardScaler()), ("regressor", Ridge(alpha=1.0))])
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        # Get data from request
-        data = request.get_json()
-        
-        # Convert input data to numpy array
-        input_data = np.array(data['features'])
-        
-        # Make prediction
-        prediction = model.predict(input_data)
-        
-        return jsonify({
-            'prediction': prediction.tolist(),
-            'status': 'success'
-        })
-    
-    except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'status': 'error'
-        }), 400
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+def train_model(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, shuffle=False
+    )
+    model = build_model()
+    model.fit(X_train, y_train)
+    preds = model.predict(X_test)
+    print("MAE:", mean_absolute_error(y_test, preds))
+    print("R²:", r2_score(y_test, preds))
+    return model, preds

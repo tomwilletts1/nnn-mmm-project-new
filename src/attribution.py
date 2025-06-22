@@ -1,37 +1,15 @@
-from flask import Flask, request, jsonify
-import xgboost as xgb
 import numpy as np
-import joblib
-import os
 
-app = Flask(__name__)
 
-# Load the model
-MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'xgboost_model.joblib')
-model = joblib.load(MODEL_PATH)
+def simulate_zero_out(model, X_full, channel_indices):
+    base_pred = model.predict(X_full)
+    attributions = {}
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        # Get data from request
-        data = request.get_json()
-        
-        # Convert input data to numpy array
-        input_data = np.array(data['features'])
-        
-        # Make prediction
-        prediction = model.predict(input_data)
-        
-        return jsonify({
-            'prediction': prediction.tolist(),
-            'status': 'success'
-        })
-    
-    except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'status': 'error'
-        }), 400
+    for name, idx in channel_indices.items():
+        X_copy = X_full.copy()
+        X_copy[:, idx] = 0
+        pred_wo = model.predict(X_copy)
+        delta = base_pred - pred_wo
+        attributions[name] = delta.mean()
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    return attributions

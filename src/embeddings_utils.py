@@ -1,37 +1,27 @@
-from flask import Flask, request, jsonify
-import xgboost as xgb
+import openai
+import pandas as pd
 import numpy as np
-import joblib
-import os
+from tqdm import tqdm
+from src.config import OPENAI_API_KEY, EMBEDDING_MODEL
 
-app = Flask(__name__)
+openai.api_key = OPENAI_API_KEY
 
-# Load the model
-MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'xgboost_model.joblib')
-model = joblib.load(MODEL_PATH)
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        # Get data from request
-        data = request.get_json()
-        
-        # Convert input data to numpy array
-        input_data = np.array(data['features'])
-        
-        # Make prediction
-        prediction = model.predict(input_data)
-        
-        return jsonify({
-            'prediction': prediction.tolist(),
-            'status': 'success'
-        })
-    
-    except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'status': 'error'
-        }), 400
+def embed_texts(text_list, model=EMBEDDING_MODEL):
+    embeddings = []
+    for text in tqdm(text_list):
+        try:
+            response = openai.embeddings.create(input=text, model=model)
+            embeddings.append(response.data[0].embedding)
+        except Exception as e:
+            print(f"Embedding failed for '{text}': {e}")
+            embeddings.append([0] * 1536)
+    return np.array(embeddings)
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+
+def embed_dataframe_column(df, column_name, output_path):
+    unique_texts = df[column_name].dropna().unique().tolist()
+    vectors = embed_texts(unique_texts)
+    emb_df = pd.DataFrame(vectors, index=unique_texts)
+    emb_df.to_csv(output_path)
+    return emb_df
